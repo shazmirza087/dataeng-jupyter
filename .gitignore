@@ -1,0 +1,13 @@
+# Jupyter and Python
+.ipynb_checkpoints/
+__pycache__/
+
+# Local Spark leftovers
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Data never goes into git: raw files, mapping CSVs and the lakehouse live outside the repo
+*.parquet
+*.csv
+lakehouse/
