@@ -198,9 +198,9 @@ Three long-lived branches, one per environment. Each branch runs against its own
 
 **The branch picks the environment.** `000_nb_configurations` reads the checked-out branch from `.git/HEAD` and sets `ENV` from it, so switching branch in GitHub Desktop switches the lakehouse the next run writes to. The summary at the end of the notebook says which one it picked, for example `Environment : uat (from branch uat)`. Setting `WAHAT_ENV` overrides the branch, so leave it unset for day-to-day work.
 
-**Changes move one step at a time:** a pull request from `dev` into `uat`, then from `uat` into `main`. Nothing goes straight into `main`.
+**Changes move one step at a time:** a pull request from `dev` into `uat`, then from `uat` into `main`. Nothing goes straight into `main`. The full release steps and the GitHub settings that enforce them are in [Deployment pipeline](../README.md#deployment-pipeline).
 
-**Every pull request is checked** by [`.github/workflows/pipeline-checks.yml`](../.github/workflows/pipeline-checks.yml):
+**Every pull request, and every push to `dev`, `uat` and `main`, is checked** by [`.github/workflows/pipeline-checks.yml`](../.github/workflows/pipeline-checks.yml):
 
 | Check | What it stops |
 |---|---|
@@ -239,15 +239,3 @@ Example: a new Gold materialized view `dim_supplier`.
 4. In Power BI, add `DimSupplier.parquet` from the `DataFolder` parameter.
 
 To switch a flow off without deleting it, set `is_active` to false.
-
-## Differences from the Databricks version
-
-| Databricks | Here | Why |
-|---|---|---|
-| Unity Catalog: `catalog.schema.table` | Spark databases `bronze_wahat`, `silver_wahat`, `gold_wahat`, `ctrl` | Local Spark has no Unity Catalog. Tables are registered from the lakehouse folders at the start of each session |
-| `%run ./notebook` | `run_notebook("path")` in each notebook's first cell | Jupyter's `%run` breaks on Windows paths with spaces |
-| Workflows with one task per layer | `060_run_pipeline` | Same order and the same stop-on-failure rule |
-| Cloud storage | Local folders under `lakehouse/` | |
-| Gold read by Power BI through a SQL warehouse | Gold published as parquet files | Power BI Desktop reads local parquet directly, with no gateway |
-
-The control tables, loaders, SQL scripts and run log are the same design, so the notebooks move to Databricks with the path and naming helpers changed in `000_nb_configurations`.
