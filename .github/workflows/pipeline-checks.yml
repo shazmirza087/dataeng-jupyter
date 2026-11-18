@@ -1,0 +1,52 @@
+# Runs on every pull request into dev, uat and main, and on every push to them.
+# Each job targets the GitHub environment that matches the branch it lands on:
+# dev -> dev, uat -> uat, main -> prod. The WAHAT_ENV variable comes from that environment.
+name: Pipeline checks
+
+on:
+  pull_request:
+    branches: [dev, uat, main]
+  push:
+    branches: [dev, uat, main]
+
+permissions:
+  contents: read
+
+jobs:
+  promotion-path:
+    name: Promotion path
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only dev may go into uat, and only uat into main
+        env:
+          SOURCE_BRANCH: ${{ github.head_ref }}
+          TARGET_BRANCH: ${{ github.base_ref }}
+        run: |
+          case "$TARGET_BRANCH" in
+            uat)  allowed="dev" ;;
+            main) allowed="uat" ;;
+            *)    echo "Pull requests into $TARGET_BRANCH can come from any branch."; exit 0 ;;
+          esac
+          if [ "$SOURCE_BRANCH" != "$allowed" ]; then
+            echo "::error::$TARGET_BRANCH only accepts pull requests from $allowed. This one is from $SOURCE_BRANCH."
+            exit 1
+          fi
+          echo "$SOURCE_BRANCH -> $TARGET_BRANCH is a valid promotion."
+
+  checks:
+    name: Checks for ${{ (github.base_ref || github.ref_name) == 'main' && 'prod' || (github.base_ref || github.ref_name) }}
+    runs-on: ubuntu-latest
+    environment: ${{ (github.base_ref || github.ref_name) == 'main' && 'prod' || (github.base_ref || github.ref_name) }}
+    env:
+      TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+      WAHAT_ENV: ${{ vars.WAHAT_ENV }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check the pipeline
+        run: python .github/scripts/check_pipeline.py
