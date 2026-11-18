@@ -4,7 +4,7 @@
 
 **A little data factory that takes 14.4 million messy money lines and turns them into clean, checked, report-ready tables. On every run, it proves its own numbers are right.**
 
-**On this page:** [The business](#the-business) · [The data](#the-data) · [The challenge](#the-challenge) · [What I built, and why](#what-i-built-and-why) · [Folder structure](#folder-structure) · [Every notebook and script](#every-notebook-and-script) · [The control table](#the-control-table) · [Every flow](#every-flow) · [Load patterns](#load-patterns) · [How a run works](#how-a-run-works) · [Branches and environments](#branches-and-environments) · [Running it yourself](#running-it-yourself)
+**On this page:** [The business](#the-business) · [The data](#the-data) · [The challenge](#the-challenge) · [What I built, and why](#what-i-built-and-why) · [Folder structure](#folder-structure) · [Every notebook and script](#every-notebook-and-script) · [The control table](#the-control-table) · [Every flow](#every-flow) · [Load patterns](#load-patterns) · [How a run works](#how-a-run-works) · [Branches and environments](#branches-and-environments) · [Deployment pipeline](#deployment-pipeline) · [Running it yourself](#running-it-yourself)
 
 The code itself is in the [`pipeline`](pipeline/) folder.
 
@@ -144,6 +144,14 @@ The 14.4 million diary lines are squeezed into about **6 million daily rows**. T
 
 **Why:** Power BI just adds things up, which is fast. The tricky logic lives in one place you can test, not scattered across fifty report formulas.
 
+### 9. Changes go live one checked step at a time
+
+There are three copies of everything: one to try things out (**dev**), one to test (**uat**) and the live one (**prod**). Each has its own data folder, so a half-finished change can never touch the numbers the boss sees.
+
+A change moves from dev to uat, then from uat to live, and only through a pull request on GitHub. Each step is checked automatically before it can be merged, and nobody can skip a step or push straight to the live copy.
+
+**Why:** the live report only ever gets changes that have already been run and checked twice.
+
 ---
 
 ## What you get, in one breath
@@ -164,7 +172,7 @@ The numbers in the folder and file names give the order things run in.
 
 ```
 .github/
-  workflows/pipeline-checks.yml     checks on every pull request into dev, uat and main
+  workflows/pipeline-checks.yml     checks on every pull request and push into dev, uat and main
   scripts/check_pipeline.py         what those checks do
   pull_request_template.md
 .gitignore
@@ -496,9 +504,21 @@ Three long-lived branches, one per environment. Each branch runs against its own
 
 **The branch picks the environment.** `000_nb_configurations` reads the checked-out branch from `.git/HEAD` and sets `ENV` from it, so switching branch in GitHub Desktop switches the lakehouse the next run writes to. The summary at the end of the notebook says which one it picked, for example `Environment : uat (from branch uat)`. Setting `WAHAT_ENV` overrides the branch, so leave it unset for day-to-day work.
 
-**Changes move one step at a time:** a pull request from `dev` into `uat`, then from `uat` into `main`. Nothing goes straight into `main`.
+**Pointing Power BI at an environment:** set the report's `DataFolder` parameter to `<lakehouse>/<env>/publish`. The live report reads `prod`.
 
-**Every pull request is checked** by [`.github/workflows/pipeline-checks.yml`](.github/workflows/pipeline-checks.yml):
+### Deployment pipeline
+
+A change reaches the live report in three steps, and each step runs in its own lakehouse folder. Moving from one step to the next is always a pull request on GitHub.
+
+1. **Build on `dev`.** Make the change on the `dev` branch and run `060_run_pipeline`. It writes to `<lakehouse>/dev`. When both quality gates pass, commit and push.
+2. **Promote to `uat`.** Open a pull request from `dev` into `uat`. The checks below run, and the pull request can only be merged once they pass. Then switch to `uat`, pull, and run the pipeline again. This time it writes to `<lakehouse>/uat`, so the change is tested a second time, away from the dev data.
+3. **Release to `main`.** Open a pull request from `uat` into `main`. The checks run again, this time against the `prod` environment. After the merge, switch to `main`, pull, and run the pipeline. It writes to `<lakehouse>/prod`, which is what the report reads. Refresh Power BI.
+
+Nothing goes straight into `main`, and nothing skips `uat`.
+
+#### The checks
+
+[`.github/workflows/pipeline-checks.yml`](.github/workflows/pipeline-checks.yml) runs on every pull request into `dev`, `uat` and `main`, and again on every push to them.
 
 | Check | What it stops |
 |---|---|
@@ -510,7 +530,17 @@ Three long-lived branches, one per environment. Each branch runs against its own
 
 The checks need no data and no Spark, so they run in under a minute. The full pipeline run, with its two quality gates, happens on your machine on the source branch before you open the pull request; the [pull request template](.github/pull_request_template.md) asks for it.
 
-**Pointing Power BI at an environment:** set the report's `DataFolder` parameter to `<lakehouse>/<env>/publish`. The live report reads `prod`.
+#### How the repository is set up on GitHub
+
+| Setting | What it does |
+|---|---|
+| Default branch: `main` | Visitors see the live version first |
+| Environments: `dev`, `uat`, `prod` | Each holds a `WAHAT_ENV` variable with its own name. The checks job runs in the environment of the branch it lands on (`main` uses `prod`) |
+| Ruleset `protect-main` | `main` only changes through a pull request, and only after *Promotion path* and *Checks for prod* pass. Force pushes and deleting the branch are blocked |
+| Ruleset `protect-uat` | The same rules for `uat`, with *Checks for uat* |
+| Merge commits only | Each promotion shows up in the history as one merge, so it is clear what went live and when |
+| Branches kept after merge | `dev` and `uat` stay in place after every pull request |
+| Pull requests from collaborators only | Anyone can read or fork the code. Only collaborators can open pull requests, and issues, discussions and the wiki are switched off |
 
 ### Running it yourself
 
@@ -584,15 +614,3 @@ Every location comes from an environment variable, set before starting Jupyter. 
 | `HADOOP_HOME` | required on Windows | Folder that holds `bin/winutils.exe` |
 | `WAHAT_TABLE_FORMAT` | `delta` | `parquet` runs without Delta, for a quick test |
 | `WAHAT_DRIVER_MEMORY` | `6g` | Spark memory. Lower it on an 8 GB machine |
-
-### Differences from the Databricks version
-
-| Databricks | Here | Why |
-|---|---|---|
-| Unity Catalog: `catalog.schema.table` | Spark databases `bronze_wahat`, `silver_wahat`, `gold_wahat`, `ctrl` | Local Spark has no Unity Catalog. Tables are registered from the lakehouse folders at the start of each session |
-| `%run ./notebook` | `run_notebook("path")` in each notebook's first cell | Jupyter's `%run` breaks on Windows paths with spaces |
-| Workflows with one task per layer | `060_run_pipeline` | Same order and the same stop-on-failure rule |
-| Cloud storage | Local folders under `lakehouse/` | |
-| Gold read by Power BI through a SQL warehouse | Gold published as parquet files | Power BI Desktop reads local parquet directly, with no gateway |
-
-The control tables, loaders, SQL scripts and run log are the same design, so the notebooks move to Databricks with the path and naming helpers changed in `000_nb_configurations`.
