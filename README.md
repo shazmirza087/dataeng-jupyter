@@ -35,7 +35,7 @@ Three years of data, 2023 to 2025, delivered as 18 files:
 
 Imagine three kids who each keep a money diary, but in **different notebooks, with different labels, and one of them counts in a different currency**. Now someone asks: "How much did all three of you spend on sweets?"
 
-That is this project.
+That is the job here, and it is harder than it sounds:
 
 - **There is no matching list.** Nobody says "account 6100 in this book is the same as account 600000 in that book". The only clue is a rule book written in sentences, and two of its rules contradict each other.
 - **Some rules only apply between certain dates.** The same account means one thing before a date and another thing after it.
@@ -43,7 +43,7 @@ That is this project.
 - **Bahrain counts in dinars.** Its amounts have to be turned into riyals at each month's rate.
 - **The budget has its plus and minus signs the other way round.**
 - **It's big.** 14.4 million lines is too much to sort out every time someone opens a report.
-- **And it has to be right.** If the rebuilt 2023 and 2024 numbers don't match what the accountants signed, nothing else matters.
+- **And it has to be right.** If the rebuilt 2023 and 2024 numbers don't match what the accountants signed, nobody will trust the rest.
 
 ---
 
@@ -110,7 +110,7 @@ I tested it by feeding it the data in pieces. First everything up to November 20
 
 A third run with nothing new **changed nothing**.
 
-**Why:** fast runs, small bills, and the same answer every time.
+**Why:** runs are quick, cloud costs stay low, and the answer doesn't change from one run to the next.
 
 ### 6. It checks its own homework and refuses to hand in a wrong answer
 
@@ -123,7 +123,7 @@ Today: **25 out of 25 match, and 100% of lines are sorted.**
 
 If a check fails, the report keeps showing the last good data. A bad run **never** overwrites good numbers.
 
-**Why:** this is the difference between "I think it's right" and "I can prove it's right".
+**Why:** the numbers are proven on every run, not checked once by hand and then trusted.
 
 ### 7. It keeps a diary of every run
 
@@ -154,11 +154,11 @@ A change moves from dev to uat, then from uat to live, and only through a pull r
 
 ---
 
-## What you get, in one breath
+## What you get
 
 You get a pipeline that takes messy data from three systems and turns it into one clean set of numbers. It proves the numbers against the signed-off accounts on every run, and it only does the new work each time. Adding a table is one row and one SQL file, and it can move to the cloud as it is.
 
-If your data lives in more than one system and your finance team keeps asking "but is this number right?", **this is exactly the kind of thing I build.**
+If your data lives in more than one system and your finance team keeps asking "but is this number right?", **this is the kind of work I do.**
 
 ---
 
